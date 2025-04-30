@@ -6,7 +6,7 @@ function loadCSV() {
   const errorMessage = document.getElementById('errorMessage');
   errorMessage.textContent = '';
 
-  fetch('data.csv')
+  fetch('https://dl.dropboxusercontent.com/scl/fi/jrsp4wt51ldr118yhjkn8/data3.txt?rlkey=60ecaxtax6u07hploelllf8vi&st=uartdnkz&dl=0')
     .then(response => {
       if (!response.ok) {
         throw new Error('Failed to load data.csv');
