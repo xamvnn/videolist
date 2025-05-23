@@ -1,322 +1,338 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Media Grid with Video Playback</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js" defer></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f0f0f0;
-    }
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Grid with Video Playback</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js" defer></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
+      }
 
-    .container {
-      max-width: 1200px;
-      min-width: 320px;
-      padding: 20px;
-      box-sizing: border-box;
-      margin: 0 auto;
-    }
+      .container {
+        max-width: 1200px;
+        min-width: 320px;
+        padding: 20px;
+        box-sizing: border-box;
+        margin: 0 auto;
+      }
 
-    h1 {
-      text-align: center;
-      font-size: 24px;
-    }
+      h1 {
+        text-align: center;
+        font-size: 24px;
+      }
 
-    .media-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* Điều chỉnh chiều rộng tối thiểu */
-  gap: 20px;
-}
-
-.media-card {
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 100%; /* Đảm bảo card chiếm toàn bộ chiều rộng của cột */
-}
-
-.media-card .thumbnail-container {
-  width: 100%;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #000;
-  position: relative;
-  
-}
-
-.media-card img {
-  width: 100%;
-  height: 100%; /* Đảm bảo ảnh lấp đầy container */
-  object-fit: contain; /* Hiển thị toàn bộ thumbnail, không cắt */
-  cursor: pointer;
-}
-
-@media (max-width: 600px) {
-  .media-grid {
-    grid-template-columns: 1fr; /* Một cột trên màn hình nhỏ */
-  }
-
-  .media-card .thumbnail-container {
-    aspect-ratio: 16/9; /* Giữ tỷ lệ trên màn hình nhỏ */
-  }
-}
-
-    .media-card p {
-      margin: 8px;
-      font-size: 14px;
-      line-height: 1.4;
-      min-height: 40px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-
-    .viewed {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      background: rgba(0, 255, 0, 0.7);
-      color: white;
-      padding: 5px;
-      border-radius: 5px;
-      font-size: 12px;
-    }
-
-    .loading-indicator {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: #fff;
-      font-size: 14px;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 5px 10px;
-      border-radius: 5px;
-      display: none;
-      z-index: 10;
-    }
-
-    button {
-      margin: 5px;
-      padding: 5px 10px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #0056b3;
-    }
-
-    .video-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      margin: 5px;
-    }
-
-    .video-controls button {
-      font-size: 12px;
-      padding: 5px 8px;
-    }
-
-    .video-controls .skip-button {
-      font-size: 14px;
-      padding: 5px 10px;
-    }
-
-    .video-controls button.active {
-      background: #28a745;
-    }
-
-    #errorMessage {
-      color: red;
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-top: 20px;
-    }
-
-    .pagination button {
-      margin: 0 5px;
-    }
-
-    .pagination span {
-      margin: 0 10px;
-      font-size: 14px;
-    }
-
-    .subscribe-text {
-      text-align: center;
-      margin-bottom: 10px;
-      color: #333;
-      font-size: 14px;
-    }
-
-    .subscribe-text a {
-      color: #ff0000;
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .subscribe-text a:hover {
-      text-decoration: underline;
-    }
-
-    .video-popup {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      z-index: 1000;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .video-popup-content {
-      position: relative;
-      background: #000;
-      padding: 10px;
-      border-radius: 8px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      max-width: 90%;
-      max-height: 90%;
-      width: 800px;
-    }
-
-    .video-popup video {
-      width: 100%;
-      height: auto;
-    }
-
-    .video-popup .video-controls {
-      display: flex;
-      justify-content: center;
-    }
-
-    .close-popup {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #ff0000;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      cursor: pointer;
-      font-size: 20px;
-      line-height: 40px;
-      text-align: center;
-      z-index: 1001;
-      opacity: 0.8;
-      transition: opacity 0.3s;
-    }
-
-    .close-popup:hover {
-      opacity: 1;
-      background: #cc0000;
-    }
-
-    .video-popup.fullscreen .video-popup-content {
-      max-width: 100%;
-      max-height: 100%;
-      width: 100%;
-      height: 100%;
-      border-radius: 0;
-    }
-
-    @media (max-width: 600px) {
       .media-grid {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        /* Giữ nguyên cho PC */
+        gap: 20px;
+      }
+
+      .media-card {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        width: 100%;
+      }
+
+      .media-card .thumbnail-container {
+        width: 100%;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #000;
+        position: relative;
+        aspect-ratio: 16/9;
+        /* Giữ tỷ lệ cho PC */
+      }
+
+      .media-card img {
+        width: 100%;
+        height: auto;
+        /* Đổi thành auto để ảnh tự điều chỉnh chiều cao */
+        object-fit: contain;
+        /* Hiển thị toàn bộ thumbnail */
+        cursor: pointer;
+      }
+
+      @media (max-width: 600px) {
+        .media-grid {
+          grid-template-columns: 1fr;
+          /* Một cột trên mobile */
+        }
+
+        .media-card .thumbnail-container {
+          aspect-ratio: unset;
+          /* Bỏ tỷ lệ 16/9 trên mobile */
+          width: 100%;
+          height: auto;
+          /* Cho phép container điều chỉnh theo ảnh */
+        }
+
+        .media-card img {
+          width: 100%;
+          height: auto;
+          /* Đảm bảo ảnh hiển thị theo tỷ lệ gốc */
+          object-fit: contain;
+        }
       }
 
       .media-card p {
+        margin: 8px;
+        font-size: 14px;
+        line-height: 1.4;
+        min-height: 40px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      .viewed {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: rgba(0, 255, 0, 0.7);
+        color: white;
+        padding: 5px;
+        border-radius: 5px;
         font-size: 12px;
-        min-height: 34px;
+      }
+
+      .loading-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #fff;
+        font-size: 14px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 5px 10px;
+        border-radius: 5px;
+        display: none;
+        z-index: 10;
+      }
+
+      button {
+        margin: 5px;
+        padding: 5px 10px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #0056b3;
+      }
+
+      .video-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 5px;
       }
 
       .video-controls button {
-        font-size: 10px;
-        padding: 4px 6px;
+        font-size: 12px;
+        padding: 5px 8px;
       }
-      
+
+      .video-controls .skip-button {
+        font-size: 14px;
+        padding: 5px 10px;
+      }
+
+      .video-controls button.active {
+        background: #28a745;
+      }
+
+      #errorMessage {
+        color: red;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 20px;
+      }
+
+      .pagination button {
+        margin: 0 5px;
+      }
+
+      .pagination span {
+        margin: 0 10px;
+        font-size: 14px;
+      }
+
+      .subscribe-text {
+        text-align: center;
+        margin-bottom: 10px;
+        color: #333;
+        font-size: 14px;
+      }
+
+      .subscribe-text a {
+        color: #ff0000;
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .subscribe-text a:hover {
+        text-decoration: underline;
+      }
+
+      .video-popup {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+      }
+
       .video-popup-content {
-        width: 95%;
+        position: relative;
+        background: #000;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        max-width: 90%;
+        max-height: 90%;
+        width: 800px;
+      }
+
+      .video-popup video {
+        width: 100%;
+        height: auto;
+      }
+
+      .video-popup .video-controls {
+        display: flex;
+        justify-content: center;
       }
 
       .close-popup {
-        top: 10px;
-        right: 10px;
-        width: 30px;
-        height: 30px;
-        font-size: 16px;
-        line-height: 30px;
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #ff0000;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        font-size: 20px;
+        line-height: 40px;
+        text-align: center;
+        z-index: 1001;
+        opacity: 0.8;
+        transition: opacity 0.3s;
       }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Media Grid</h1>
-    <div class="subscribe-text">
-      tml xin ủng hộ 1 sub nhé: <a href="https://www.youtube.com/@coilong864?sub_confirmation=1" target="_blank">Kênh YouTube</a>
-    </div>
-    <div id="errorMessage"></div>
-    <div id="mediaGrid" class="media-grid"></div>
-    <div class="pagination">
-      <button id="prevPage" onclick="changePage(-1)" disabled>Previous</button>
-      <span id="pageInfo"></span>
-      <button id="nextPage" onclick="changePage(1)">Next</button>
-    </div>
-    <div id="videoPopup" class="video-popup" onclick="closePopup()">
-      <div class="video-popup-content" onclick="event.stopPropagation()">
-        <video controls></video>
-        <div class="video-controls">
-          <button onclick="event.stopPropagation(); prevVideo(this)">Previous</button>
-          <button onclick="event.stopPropagation(); pauseVideo(this)">Pause</button>
-          <button onclick="event.stopPropagation(); nextVideo(this)">Next</button>
-          <button class="skip-button" onclick="event.stopPropagation(); skipForward(this)">+10s</button>
-        </div>
-      </div>
-      <button class="close-popup" onclick="closePopup()">×</button>
-    </div>
-  </div>
-  <script>
-    let mediaData = [];
-    let viewedItems = new Set(JSON.parse(localStorage.getItem('viewedItems') || '[]'));
-    let currentPage = 1;
-    const itemsPerPage = 20;
-    let currentVideoIndex = -1;
 
-    function parseCSV(csvText) {
-      try {
-        const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-        const result = parsed.data
-          .filter(row => row.url && row.title)
-          .map((row, index) => ({
+      .close-popup:hover {
+        opacity: 1;
+        background: #cc0000;
+      }
+
+      .video-popup.fullscreen .video-popup-content {
+        max-width: 100%;
+        max-height: 100%;
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+      }
+
+      @media (max-width: 600px) {
+        .media-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .media-card p {
+          font-size: 12px;
+          min-height: 34px;
+        }
+
+        .video-controls button {
+          font-size: 10px;
+          padding: 4px 6px;
+        }
+
+        .video-popup-content {
+          width: 95%;
+        }
+
+        .close-popup {
+          top: 10px;
+          right: 10px;
+          width: 30px;
+          height: 30px;
+          font-size: 16px;
+          line-height: 30px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Media Grid</h1>
+      <div class="subscribe-text"> tml xin ủng hộ 1 sub nhé: <a href="https://www.youtube.com/@coilong864?sub_confirmation=1" target="_blank">Kênh YouTube</a>
+      </div>
+      <div id="errorMessage"></div>
+      <div id="mediaGrid" class="media-grid"></div>
+      <div class="pagination">
+        <button id="prevPage" onclick="changePage(-1)" disabled>Previous</button>
+        <span id="pageInfo"></span>
+        <button id="nextPage" onclick="changePage(1)">Next</button>
+      </div>
+      <div id="videoPopup" class="video-popup" onclick="closePopup()">
+        <div class="video-popup-content" onclick="event.stopPropagation()">
+          <video controls></video>
+          <div class="video-controls">
+            <button onclick="event.stopPropagation(); prevVideo(this)">Previous</button>
+            <button onclick="event.stopPropagation(); pauseVideo(this)">Pause</button>
+            <button onclick="event.stopPropagation(); nextVideo(this)">Next</button>
+            <button class="skip-button" onclick="event.stopPropagation(); skipForward(this)">+10s</button>
+          </div>
+        </div>
+        <button class="close-popup" onclick="closePopup()">×</button>
+      </div>
+    </div>
+    <script>
+      let mediaData = [];
+      let viewedItems = new Set(JSON.parse(localStorage.getItem('viewedItems') || '[]'));
+      let currentPage = 1;
+      const itemsPerPage = 20;
+      let currentVideoIndex = -1;
+
+      function parseCSV(csvText) {
+        try {
+          const parsed = Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true
+          });
+          const result = parsed.data.filter(row => row.url && row.title).map((row, index) => ({
             id: row.id || `video-${index + 1}`,
             url: row.url.trim(),
             title: row.title.trim(),
@@ -324,59 +340,59 @@
             size_formatted: row.size_formatted || 'Unknown',
             how_long_ago: row.how_long_ago || 'Unknown'
           }));
-        if (parsed.errors.length > 0) {
-          console.warn('Lỗi khi parse CSV:', parsed.errors);
+          if (parsed.errors.length > 0) {
+            console.warn('Lỗi khi parse CSV:', parsed.errors);
+          }
+          return result;
+        } catch (err) {
+          console.error('Lỗi parse CSV:', err);
+          document.getElementById('errorMessage').textContent = 'Lỗi khi phân tích file CSV.';
+          return [];
         }
-        return result;
-      } catch (err) {
-        console.error('Lỗi parse CSV:', err);
-        document.getElementById('errorMessage').textContent = 'Lỗi khi phân tích file CSV.';
-        return [];
       }
-    }
 
-    function createMediaCard(item) {
-      const card = document.createElement('div');
-      card.className = 'media-card';
-      const viewedMark = viewedItems.has(item.id) ? '<span class="viewed">Viewed</span>' : '';
-      card.innerHTML = `
-        <div class="thumbnail-container">
-          <img src="${item.thumb}" alt="${item.title}" loading="lazy" onclick="playVideo('${item.url}', '${item.id}', ${mediaData.indexOf(item)})" onerror="this.src='https://via.placeholder.com/150?text=Video'">
+      function createMediaCard(item) {
+        const card = document.createElement('div');
+        card.className = 'media-card';
+        const viewedMark = viewedItems.has(item.id) ? ' < span class = "viewed" > Viewed < /span>' : '';
+        card.innerHTML = `
+        
+					<div class="thumbnail-container">
+						<img src="${item.thumb}" alt="${item.title}" loading="lazy" onclick="playVideo('${item.url}', '${item.id}', ${mediaData.indexOf(item)})" onerror="this.src='https://via.placeholder.com/150?text=Video'">
           ${viewedMark}
-          <div class="loading-indicator">Đang tải...</div>
-        </div>
-        <p><b>${item.title}</b></p>
+          
+							<div class="loading-indicator">Đang tải...</div>
+						</div>
+						<p>
+							<b>${item.title}</b>
+						</p>
       `;
-      return card;
-    }
+        return card;
+      }
 
-    function playVideo(videoUrl, videoId, index) {
-      const popup = document.getElementById('videoPopup');
-      const video = popup.querySelector('video');
-      const loadingIndicator = document.querySelector('.loading-indicator');
-      const errorMessage = document.getElementById('errorMessage');
+      function playVideo(videoUrl, videoId, index) {
+        const popup = document.getElementById('videoPopup');
+        const video = popup.querySelector('video');
+        const loadingIndicator = document.querySelector('.loading-indicator');
+        const errorMessage = document.getElementById('errorMessage');
+        currentVideoIndex = index;
+        video.src = videoUrl;
+        popup.style.display = 'flex';
+        loadingIndicator.style.display = 'block';
+        let retries = 0;
+        const maxRetries = 3;
+        const retryDelay = 1000;
 
-      currentVideoIndex = index;
-      video.src = videoUrl;
-      popup.style.display = 'flex';
-      loadingIndicator.style.display = 'block';
-
-      let retries = 0;
-      const maxRetries = 3;
-      const retryDelay = 1000;
-
-      function attemptPlay() {
-        const playPromise = video.play();
-        if (playPromise) {
-          playPromise
-            .then(() => {
+        function attemptPlay() {
+          const playPromise = video.play();
+          if (playPromise) {
+            playPromise.then(() => {
               loadingIndicator.style.display = 'none';
               if (!viewedItems.has(videoId)) {
                 markAsViewed(videoId);
               }
               updatePauseButton(video, popup);
-            })
-            .catch(err => {
+            }).catch(err => {
               console.error(`Failed to play video: ${video.src}`, err);
               if (retries < maxRetries) {
                 retries++;
@@ -389,164 +405,156 @@
                 closePopup();
               }
             });
+          }
         }
-      }
 
-      function handleVideoError() {
-        errorMessage.textContent = `Lỗi tải video: ${video.src}. Vui lòng kiểm tra URL hoặc định dạng video.`;
-        closePopup();
-      }
-
-      function handleVideoEnded() {
-        autoNextVideo();
-      }
-
-      video.addEventListener('error', handleVideoError, { once: true });
-      video.addEventListener('ended', handleVideoEnded, { once: true });
-
-      video.load();
-      attemptPlay();
-    }
-
-    function autoNextVideo() {
-      if (currentVideoIndex >= 0 && currentVideoIndex < mediaData.length - 1) {
-        const nextIndex = currentVideoIndex + 1;
-        const nextItem = mediaData[nextIndex];
-        playVideo(nextItem.url, nextItem.id, nextIndex);
-      } else {
-        const firstItem = mediaData[0];
-        playVideo(firstItem.url, firstItem.id, 0);
-      }
-    }
-
-    function closePopup() {
-      const popup = document.getElementById('videoPopup');
-      const video = popup.querySelector('video');
-      
-      if (document.fullscreenElement || 
-          document.webkitFullscreenElement || 
-          document.mozFullScreenElement || 
-          document.msFullscreenElement) {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-          document.mozCancelFullScreen();
-        } else if (document.msExitFullscreen) {
-          document.msExitFullscreen();
+        function handleVideoError() {
+          errorMessage.textContent = `Lỗi tải video: ${video.src}. Vui lòng kiểm tra URL hoặc định dạng video.`;
+          closePopup();
         }
+
+        function handleVideoEnded() {
+          autoNextVideo();
+        }
+        video.addEventListener('error', handleVideoError, {
+          once: true
+        });
+        video.addEventListener('ended', handleVideoEnded, {
+          once: true
+        });
+        video.load();
+        attemptPlay();
       }
 
-      video.pause();
-      video.src = '';
-      popup.style.display = 'none';
-      document.querySelector('.loading-indicator').style.display = 'none';
-      currentVideoIndex = -1;
-    }
-
-    function pauseVideo(button) {
-      const video = document.getElementById('videoPopup').querySelector('video');
-      if (video) {
-        if (video.paused) {
-          video.play();
-          button.textContent = 'Pause';
+      function autoNextVideo() {
+        if (currentVideoIndex >= 0 && currentVideoIndex < mediaData.length - 1) {
+          const nextIndex = currentVideoIndex + 1;
+          const nextItem = mediaData[nextIndex];
+          playVideo(nextItem.url, nextItem.id, nextIndex);
         } else {
-          video.pause();
-          button.textContent = 'Play';
+          const firstItem = mediaData[0];
+          playVideo(firstItem.url, firstItem.id, 0);
         }
-        updatePauseButton(video, document.getElementById('videoPopup'));
-      }
-    }
-
-    function updatePauseButton(video, container) {
-      const pauseButton = container.querySelector('.video-controls button:nth-child(2)');
-      pauseButton.textContent = video.paused ? 'Play' : 'Pause';
-    }
-
-    function skipForward(button) {
-      const video = document.getElementById('videoPopup').querySelector('video');
-      if (video) {
-        video.currentTime += 10;
-      }
-    }
-
-    function prevVideo(button) {
-      if (currentVideoIndex > 0) {
-        const prevItem = mediaData[currentVideoIndex - 1];
-        playVideo(prevItem.url, prevItem.id, currentVideoIndex - 1);
-      }
-    }
-
-    function nextVideo(button) {
-      if (currentVideoIndex < mediaData.length - 1) {
-        const nextItem = mediaData[currentVideoIndex + 1];
-        playVideo(nextItem.url, nextItem.id, currentVideoIndex + 1);
-      } else {
-        const firstItem = mediaData[0];
-        playVideo(firstItem.url, firstItem.id, 0);
-      }
-    }
-
-    function markAsViewed(id) {
-      if (!viewedItems.has(id)) {
-        viewedItems.add(id);
-        localStorage.setItem('viewedItems', JSON.stringify([...viewedItems]));
-        requestAnimationFrame(renderPage);
-      }
-    }
-
-    function updatePagination() {
-      const totalPages = Math.ceil(mediaData.length / itemsPerPage);
-      document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
-      document.getElementById('prevPage').disabled = currentPage === 1;
-      document.getElementById('nextPage').disabled = currentPage === totalPages;
-    }
-
-    function renderPage() {
-      const mediaGrid = document.getElementById('mediaGrid');
-      const errorMessage = document.getElementById('errorMessage');
-      mediaGrid.innerHTML = '';
-      errorMessage.textContent = '';
-
-      if (!mediaData || mediaData.length === 0) {
-        errorMessage.textContent = 'Không có dữ liệu video để hiển thị.';
-        return;
       }
 
-      const start = (currentPage - 1) * itemsPerPage;
-      const end = start + itemsPerPage;
-      const pageItems = mediaData.slice(start, end);
-      pageItems.forEach(item => mediaGrid.appendChild(createMediaCard(item)));
-      updatePagination();
-    }
+      function closePopup() {
+        const popup = document.getElementById('videoPopup');
+        const video = popup.querySelector('video');
+        if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+          } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+          }
+        }
+        video.pause();
+        video.src = '';
+        popup.style.display = 'none';
+        document.querySelector('.loading-indicator').style.display = 'none';
+        currentVideoIndex = -1;
+      }
 
-    function changePage(direction) {
-      const totalPages = Math.ceil(mediaData.length / itemsPerPage);
-      currentPage = Math.min(Math.max(1, currentPage + direction), totalPages);
-      requestAnimationFrame(renderPage);
-    }
+      function pauseVideo(button) {
+        const video = document.getElementById('videoPopup').querySelector('video');
+        if (video) {
+          if (video.paused) {
+            video.play();
+            button.textContent = 'Pause';
+          } else {
+            video.pause();
+            button.textContent = 'Play';
+          }
+          updatePauseButton(video, document.getElementById('videoPopup'));
+        }
+      }
 
-    function loadCSV() {
-      const errorMessage = document.getElementById('errorMessage');
-      const cachedData = localStorage.getItem('cachedMediaData');
-      if (cachedData) {
-        mediaData = JSON.parse(cachedData);
-        if (mediaData.length > 0) {
+      function updatePauseButton(video, container) {
+        const pauseButton = container.querySelector('.video-controls button:nth-child(2)');
+        pauseButton.textContent = video.paused ? 'Play' : 'Pause';
+      }
+
+      function skipForward(button) {
+        const video = document.getElementById('videoPopup').querySelector('video');
+        if (video) {
+          video.currentTime += 10;
+        }
+      }
+
+      function prevVideo(button) {
+        if (currentVideoIndex > 0) {
+          const prevItem = mediaData[currentVideoIndex - 1];
+          playVideo(prevItem.url, prevItem.id, currentVideoIndex - 1);
+        }
+      }
+
+      function nextVideo(button) {
+        if (currentVideoIndex < mediaData.length - 1) {
+          const nextItem = mediaData[currentVideoIndex + 1];
+          playVideo(nextItem.url, nextItem.id, currentVideoIndex + 1);
+        } else {
+          const firstItem = mediaData[0];
+          playVideo(firstItem.url, firstItem.id, 0);
+        }
+      }
+
+      function markAsViewed(id) {
+        if (!viewedItems.has(id)) {
+          viewedItems.add(id);
+          localStorage.setItem('viewedItems', JSON.stringify([...viewedItems]));
           requestAnimationFrame(renderPage);
+        }
+      }
+
+      function updatePagination() {
+        const totalPages = Math.ceil(mediaData.length / itemsPerPage);
+        document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+        document.getElementById('prevPage').disabled = currentPage === 1;
+        document.getElementById('nextPage').disabled = currentPage === totalPages;
+      }
+
+      function renderPage() {
+        const mediaGrid = document.getElementById('mediaGrid');
+        const errorMessage = document.getElementById('errorMessage');
+        mediaGrid.innerHTML = '';
+        errorMessage.textContent = '';
+        if (!mediaData || mediaData.length === 0) {
+          errorMessage.textContent = 'Không có dữ liệu video để hiển thị.';
           return;
         }
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const pageItems = mediaData.slice(start, end);
+        pageItems.forEach(item => mediaGrid.appendChild(createMediaCard(item)));
+        updatePagination();
       }
 
-      errorMessage.textContent = '';
-      fetch('https://raw.githubusercontent.com/xamvnn/videolist/main/data.csv')
-        .then(response => {
+      function changePage(direction) {
+        const totalPages = Math.ceil(mediaData.length / itemsPerPage);
+        currentPage = Math.min(Math.max(1, currentPage + direction), totalPages);
+        requestAnimationFrame(renderPage);
+      }
+
+      function loadCSV() {
+        const errorMessage = document.getElementById('errorMessage');
+        const cachedData = localStorage.getItem('cachedMediaData');
+        if (cachedData) {
+          mediaData = JSON.parse(cachedData);
+          if (mediaData.length > 0) {
+            requestAnimationFrame(renderPage);
+            return;
+          }
+        }
+        errorMessage.textContent = '';
+        fetch('https://raw.githubusercontent.com/xamvnn/videolist/main/data.csv').then(response => {
           if (!response.ok) {
             throw new Error('Không thể tải data.csv');
           }
           return response.text();
-        })
-        .then(csvText => {
+        }).then(csvText => {
           mediaData = parseCSV(csvText);
           if (mediaData.length === 0) {
             errorMessage.textContent = 'Không tìm thấy dữ liệu hợp lệ trong CSV.';
@@ -554,21 +562,18 @@
           }
           localStorage.setItem('cachedMediaData', JSON.stringify(mediaData));
           requestAnimationFrame(renderPage);
-        })
-        .catch(err => {
+        }).catch(err => {
           errorMessage.textContent = 'Lỗi khi tải file CSV: ' + err.message;
           console.error('Lỗi tải CSV:', err);
         });
-    }
-
-    document.addEventListener('DOMContentLoaded', loadCSV);
-    
-    document.addEventListener('keydown', function(event) {
-      const popup = document.getElementById('videoPopup');
-      if (event.key === 'Escape' && popup.style.display === 'flex') {
-        closePopup();
       }
-    });
-  </script>
-</body>
+      document.addEventListener('DOMContentLoaded', loadCSV);
+      document.addEventListener('keydown', function(event) {
+        const popup = document.getElementById('videoPopup');
+        if (event.key === 'Escape' && popup.style.display === 'flex') {
+          closePopup();
+        }
+      });
+    </script>
+  </body>
 </html>
