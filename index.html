@@ -58,6 +58,7 @@
       object-fit: cover;
       aspect-ratio: auto;
       loading: lazy;
+      cursor: pointer; /* Thêm cursor để báo hiệu có thể nhấn */
     }
 
     .media-card video {
@@ -260,7 +261,7 @@
       const viewedMark = viewedItems.has(item.id) ? '<span class="viewed">Viewed</span>' : '';
       card.innerHTML = `
         <div class="thumbnail-container">
-          <img src="${item.thumb}" alt="${item.title}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=Video'">
+          <img src="${item.thumb}" alt="${item.title}" loading="lazy" onclick="event.stopPropagation(); playVideo(this.parentElement.parentElement.querySelector('button[onclick*=\"playVideo\"]'), '${item.url}')" onerror="this.src='https://via.placeholder.com/150?text=Video'">
           ${viewedMark}
           <div class="loading-indicator">Đang tải...</div>
         </div>
@@ -329,7 +330,10 @@
               console.error(`Failed to play video: ${video.src}`, err);
               if (retries < maxRetries) {
                 retries++;
-                setTimeout(attemptPlay, retryDelay * Math.pow(2, retries));
+                setTimeout(() => {
+                  video.load();
+                  attemptPlay();
+                }, retryDelay * Math.pow(2, retries));
               } else {
                 errorMessage.textContent = `Không thể phát video: ${err.message}. Vui lòng kiểm tra định dạng hoặc kết nối.`;
                 img.style.display = 'block';
@@ -349,8 +353,8 @@
         loadingIndicator.style.display = 'none';
       }, { once: true });
 
-      video.addEventListener('canplay', attemptPlay, { once: true });
       video.load();
+      attemptPlay();
       video.addEventListener('ended', () => nextVideo(button), { once: true });
     }
 
