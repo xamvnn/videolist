@@ -138,6 +138,10 @@
       padding: 5px 10px;
     }
 
+    .video-controls button.active {
+      background: #28a745;
+    }
+
     #errorMessage {
       color: red;
       text-align: center;
@@ -179,12 +183,17 @@
 
     @media (max-width: 600px) {
       .media-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
       }
 
       .media-card p {
-        font-size: 12px;
-        min-height: 34px;
+        font-size: 10px;
+        min-height: 30px;
+      }
+
+      .video-controls button {
+        font-size: 10px;
+        padding: 4px 6px;
       }
     }
   </style>
@@ -213,27 +222,27 @@
     const itemsPerPage = 12;
 
     function parseCSV(csvText) {
-      const lines = csvText.trim().split('\n');
-      const headers = lines[0].split(',').map(header => header.trim());
-      const urlIndex = headers.indexOf('url');
-      const titleIndex = headers.indexOf('title');
-      const idIndex = headers.indexOf('id');
-      const thumbIndex = headers.indexOf('thumb');
-      const result = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(col => col.trim());
-        if (cols[urlIndex] && cols[titleIndex]) {
-          result.push({
-            id: cols[idIndex] || `video-${i}`,
-            url: cols[urlIndex],
-            title: cols[titleIndex],
-            thumb: cols[thumbIndex] || 'https://via.placeholder.com/150?text=Video',
-            size_formatted: cols[headers.indexOf('size_formatted')] || 'Unknown',
-            how_long_ago: cols[headers.indexOf('how_long_ago')] || 'Unknown'
-          });
+      try {
+        const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+        const result = parsed.data
+          .filter(row => row.url && row.title)
+          .map((row, index) => ({
+            id: row.id || `video-${index + 1}`,
+            url: row.url.trim(),
+            title: row.title.trim(),
+            thumb: row.thumb ? row.thumb.trim() : 'https://via.placeholder.com/150?text=Video',
+            size_formatted: row.size_formatted || 'Unknown',
+            how_long_ago: row.how_long_ago || 'Unknown'
+          }));
+        if (parsed.errors.length > 0) {
+          console.warn('Lỗi khi parse CSV:', parsed.errors);
         }
+        return result;
+      } catch (err) {
+        console.error('Lỗi parse CSV:', err);
+        document.getElementById('errorMessage').textContent = 'Lỗi khi phân tích file CSV.';
+        return [];
       }
-      return result;
     }
 
     function savePlaybackSpeed(video, speed) {
@@ -252,17 +261,17 @@
       card.innerHTML = `
         <div class="thumbnail-container">
           <img src="${item.thumb}" alt="${item.title}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=Video'">
-          <video preload="metadata" src="${item.url}"></video>
           ${viewedMark}
           <div class="loading-indicator">Đang tải...</div>
         </div>
         <p><b>${item.title}</b></p>
         <p>Size: ${item.size_formatted}</p>
         <p>Uploaded: ${item.how_long_ago}</p>
-        <button onclick="event.stopPropagation(); playVideo(this)">Play</button>
+        <button onclick="event.stopPropagation(); playVideo(this, '${item.url}')">Play</button>
         <button onclick="event.stopPropagation(); markAsViewed('${item.id}')">Mark as ${viewedItems.has(item.id) ? 'Unviewed' : 'Viewed'}</button>
         <div class="video-controls">
           <button onclick="event.stopPropagation(); prevVideo(this)">Previous</button>
+          <button onclick="event.stopPropagation(); pauseVideo(this)">Pause</button>
           <button onclick="event.stopPropagation(); nextVideo(this)">Next</button>
           <button class="skip-button" onclick="event.stopPropagation(); skipForward(this)">+10s</button>
           <button onclick="event.stopPropagation(); setPlaybackSpeed(this, 1.5)">x1.5</button>
@@ -276,17 +285,28 @@
       return card;
     }
 
-    function playVideo(button) {
+    function playVideo(button, videoUrl) {
       const card = button.parentElement;
       const img = card.querySelector('img');
-      const video = card.querySelector('video');
+      let video = card.querySelector('video');
       const videoControls = card.querySelector('.video-controls');
       const loadingIndicator = card.querySelector('.loading-indicator');
+      const errorMessage = document.getElementById('errorMessage');
+
+      if (!video) {
+        video = document.createElement('video');
+        video.src = videoUrl;
+        video.preload = 'metadata';
+        video.controls = true;
+        video.style.display = 'none';
+        card.querySelector('.thumbnail-container').appendChild(video);
+      }
+
       loadingIndicator.style.display = 'block';
       img.style.display = 'none';
       video.style.display = 'block';
-      video.controls = true;
       videoControls.classList.add('show');
+
       let retries = 0;
       const maxRetries = 3;
       const retryDelay = 1000;
@@ -303,14 +323,15 @@
               }
               video.playbackRate = getSavedPlaybackSpeed(video);
               updateSpeedButtons(video, card);
+              updatePauseButton(video, card);
             })
             .catch(err => {
               console.error(`Failed to play video: ${video.src}`, err);
               if (retries < maxRetries) {
                 retries++;
-                setTimeout(attemptPlay, retryDelay * Math.pow(2, retries)); // Exponential backoff
+                setTimeout(attemptPlay, retryDelay * Math.pow(2, retries));
               } else {
-                alert('Không thể phát video sau khi thử lại. Vui lòng kiểm tra định dạng video hoặc thử video khác.');
+                errorMessage.textContent = `Không thể phát video: ${err.message}. Vui lòng kiểm tra định dạng hoặc kết nối.`;
                 img.style.display = 'block';
                 video.style.display = 'none';
                 videoControls.classList.remove('show');
@@ -320,7 +341,16 @@
         }
       }
 
-      attemptPlay();
+      video.addEventListener('error', () => {
+        errorMessage.textContent = `Lỗi tải video: ${video.src}. Vui lòng kiểm tra URL hoặc định dạng video.`;
+        img.style.display = 'block';
+        video.style.display = 'none';
+        videoControls.classList.remove('show');
+        loadingIndicator.style.display = 'none';
+      }, { once: true });
+
+      video.addEventListener('canplay', attemptPlay, { once: true });
+      video.load();
       video.addEventListener('ended', () => nextVideo(button), { once: true });
     }
 
@@ -337,31 +367,55 @@
     function setPlaybackSpeed(button, speed) {
       const card = button.parentElement.parentElement;
       const video = card.querySelector('video');
-      if (video.playbackRate === speed) {
-        video.playbackRate = 1;
-        savePlaybackSpeed(video, 1);
-      } else {
-        video.playbackRate = speed;
-        savePlaybackSpeed(video, speed);
+      if (video) {
+        if (video.playbackRate === speed) {
+          video.playbackRate = 1;
+          savePlaybackSpeed(video, 1);
+        } else {
+          video.playbackRate = speed;
+          savePlaybackSpeed(video, speed);
+        }
+        updateSpeedButtons(video, card);
       }
-      updateSpeedButtons(video, card);
     }
 
     function skipForward(button) {
       const card = button.parentElement.parentElement;
       const video = card.querySelector('video');
-      video.currentTime += 10;
+      if (video) {
+        video.currentTime += 10;
+      }
+    }
+
+    function pauseVideo(button) {
+      const card = button.parentElement.parentElement;
+      const video = card.querySelector('video');
+      if (video) {
+        if (video.paused) {
+          video.play();
+          button.textContent = 'Pause';
+        } else {
+          video.pause();
+          button.textContent = 'Play';
+        }
+        updatePauseButton(video, card);
+      }
+    }
+
+    function updatePauseButton(video, card) {
+      const pauseButton = card.querySelector('.video-controls button:nth-child(2)');
+      pauseButton.textContent = video.paused ? 'Play' : 'Pause';
     }
 
     function prevVideo(button) {
-      const index = mediaData.findIndex(item => item.url === button.parentElement.parentElement.querySelector('video').src);
+      const index = mediaData.findIndex(item => item.url === button.parentElement.parentElement.querySelector('video')?.src);
       if (index > 0) {
         playVideoByIndex(index - 1);
       }
     }
 
     function nextVideo(button) {
-      const index = mediaData.findIndex(item => item.url === button.parentElement.parentElement.querySelector('video').src);
+      const index = mediaData.findIndex(item => item.url === button.parentElement.parentElement.querySelector('video')?.src);
       if (index < mediaData.length - 1) {
         playVideoByIndex(index + 1);
       } else {
@@ -375,7 +429,7 @@
       if (index >= start && index < end) {
         const card = document.getElementById('mediaGrid').children[index - start];
         const playButton = card.querySelector('button[onclick*="playVideo"]');
-        playVideo(playButton);
+        playVideo(playButton, mediaData[index].url);
       } else {
         currentPage = Math.floor(index / itemsPerPage) + 1;
         requestAnimationFrame(() => {
@@ -383,7 +437,7 @@
           const newIndex = index % itemsPerPage;
           const card = document.getElementById('mediaGrid').children[newIndex];
           const playButton = card.querySelector('button[onclick*="playVideo"]');
-          playVideo(playButton);
+          playVideo(playButton, mediaData[index].url);
         });
       }
     }
@@ -440,8 +494,16 @@
 
     function loadCSV() {
       const errorMessage = document.getElementById('errorMessage');
-      errorMessage.textContent = '';
+      const cachedData = localStorage.getItem('cachedMediaData');
+      if (cachedData) {
+        mediaData = JSON.parse(cachedData);
+        if (mediaData.length > 0) {
+          requestAnimationFrame(renderPage);
+          return;
+        }
+      }
 
+      errorMessage.textContent = '';
       fetch('https://raw.githubusercontent.com/xamvnn/videolist/main/data.csv')
         .then(response => {
           if (!response.ok) {
@@ -452,9 +514,10 @@
         .then(csvText => {
           mediaData = parseCSV(csvText);
           if (mediaData.length === 0) {
-            errorMessage.textContent = 'Không tìm thấy dữ liệu hợp lệ trong CSV. Vui lòng kiểm tra file data.csv có chứa các cột url và title.';
+            errorMessage.textContent = 'Không tìm thấy dữ liệu hợp lệ trong CSV.';
             return;
           }
+          localStorage.setItem('cachedMediaData', JSON.stringify(mediaData));
           requestAnimationFrame(renderPage);
         })
         .catch(err => {
