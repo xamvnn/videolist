@@ -28,8 +28,8 @@
 
     .media-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(45%, 1fr)); /* Tối đa 2 video trên 1 dòng */
+      gap: 20px;
     }
 
     .media-card {
@@ -56,15 +56,9 @@
       width: 100%;
       height: auto;
       object-fit: cover;
-      aspect-ratio: auto;
+      aspect-ratio: 16/9;
       loading: lazy;
-      cursor: pointer; /* Thêm cursor để báo hiệu có thể nhấn */
-    }
-
-    .media-card video {
-      width: 100%;
-      height: auto;
-      display: none;
+      cursor: pointer;
     }
 
     .media-card p {
@@ -119,14 +113,10 @@
     }
 
     .video-controls {
-      display: none;
+      display: flex;
       flex-wrap: wrap;
       gap: 5px;
       margin: 5px;
-    }
-
-    .video-controls.show {
-      display: flex;
     }
 
     .video-controls button {
@@ -182,14 +172,60 @@
       text-decoration: underline;
     }
 
+    .video-popup {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #000;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      z-index: 1000;
+      max-width: 90%;
+      max-height: 90%;
+    }
+
+    .video-popup video {
+      width: 100%;
+      max-width: 800px;
+      height: auto;
+    }
+
+    .video-popup .video-controls {
+      display: flex;
+      justify-content: center;
+    }
+
+    .close-popup {
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      background: #ff0000;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 24px;
+      text-align: center;
+    }
+
+    .close-popup:hover {
+      background: #cc0000;
+    }
+
     @media (max-width: 600px) {
       .media-grid {
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        grid-template-columns: 1fr; /* 1 video trên dòng cho màn hình nhỏ */
       }
 
       .media-card p {
-        font-size: 10px;
-        min-height: 30px;
+        font-size: 12px;
+        min-height: 34px;
       }
 
       .video-controls button {
@@ -206,21 +242,28 @@
       tml xin ủng hộ 1 sub nhé: <a href="https://www.youtube.com/@coilong864?sub_confirmation=1" target="_blank">Kênh YouTube</a>
     </div>
     <div id="errorMessage"></div>
-    <select id="sort" onchange="sortMedia()">
-      <option value="title">Title</option>
-    </select>
     <div id="mediaGrid" class="media-grid"></div>
     <div class="pagination">
       <button id="prevPage" onclick="changePage(-1)" disabled>Previous</button>
       <span id="pageInfo"></span>
       <button id="nextPage" onclick="changePage(1)">Next</button>
     </div>
+    <div id="videoPopup" class="video-popup">
+      <button class="close-popup" onclick="closePopup()">×</button>
+      <video controls></video>
+      <div class="video-controls">
+        <button onclick="event.stopPropagation(); prevVideo(this)">Previous</button>
+        <button onclick="event.stopPropagation(); pauseVideo(this)">Pause</button>
+        <button onclick="event.stopPropagation(); nextVideo(this)">Next</button>
+        <button class="skip-button" onclick="event.stopPropagation(); skipForward(this)">+10s</button>
+      </div>
+    </div>
   </div>
   <script>
     let mediaData = [];
     let viewedItems = new Set(JSON.parse(localStorage.getItem('viewedItems') || '[]'));
     let currentPage = 1;
-    const itemsPerPage = 12;
+    const itemsPerPage = 6;
 
     function parseCSV(csvText) {
       try {
@@ -246,67 +289,30 @@
       }
     }
 
-    function savePlaybackSpeed(video, speed) {
-      localStorage.setItem(`playbackSpeed_${video.src}`, speed);
-    }
-
-    function getSavedPlaybackSpeed(video) {
-      const savedSpeed = localStorage.getItem(`playbackSpeed_${video.src}`);
-      return savedSpeed !== null ? parseFloat(savedSpeed) : 1;
-    }
-
     function createMediaCard(item) {
       const card = document.createElement('div');
       card.className = 'media-card';
       const viewedMark = viewedItems.has(item.id) ? '<span class="viewed">Viewed</span>' : '';
       card.innerHTML = `
         <div class="thumbnail-container">
-          <img src="${item.thumb}" alt="${item.title}" loading="lazy" onclick="event.stopPropagation(); playVideo(this.parentElement.parentElement.querySelector('button[onclick*=\"playVideo\"]'), '${item.url}')" onerror="this.src='https://via.placeholder.com/150?text=Video'">
+          <img src="${item.thumb}" alt="${item.title}" loading="lazy" onclick="playVideo('${item.url}', '${item.id}')" onerror="this.src='https://via.placeholder.com/150?text=Video'">
           ${viewedMark}
           <div class="loading-indicator">Đang tải...</div>
         </div>
         <p><b>${item.title}</b></p>
-        <p>Size: ${item.size_formatted}</p>
-        <p>Uploaded: ${item.how_long_ago}</p>
-        <button onclick="event.stopPropagation(); playVideo(this, '${item.url}')">Play</button>
-        <button onclick="event.stopPropagation(); markAsViewed('${item.id}')">Mark as ${viewedItems.has(item.id) ? 'Unviewed' : 'Viewed'}</button>
-        <div class="video-controls">
-          <button onclick="event.stopPropagation(); prevVideo(this)">Previous</button>
-          <button onclick="event.stopPropagation(); pauseVideo(this)">Pause</button>
-          <button onclick="event.stopPropagation(); nextVideo(this)">Next</button>
-          <button class="skip-button" onclick="event.stopPropagation(); skipForward(this)">+10s</button>
-          <button onclick="event.stopPropagation(); setPlaybackSpeed(this, 1.5)">x1.5</button>
-          <button onclick="event.stopPropagation(); setPlaybackSpeed(this, 2)">x2</button>
-          <button onclick="event.stopPropagation(); setPlaybackSpeed(this, 3)">x3</button>
-          <button onclick="event.stopPropagation(); setPlaybackSpeed(this, 4)">x4</button>
-          <button onclick="event.stopPropagation(); setPlaybackSpeed(this, 6)">x6</button>
-          <button onclick="event.stopPropagation(); setPlaybackSpeed(this, 8)">x8</button>
-        </div>
       `;
       return card;
     }
 
-    function playVideo(button, videoUrl) {
-      const card = button.parentElement;
-      const img = card.querySelector('img');
-      let video = card.querySelector('video');
-      const videoControls = card.querySelector('.video-controls');
-      const loadingIndicator = card.querySelector('.loading-indicator');
+    function playVideo(videoUrl, videoId) {
+      const popup = document.getElementById('videoPopup');
+      const video = popup.querySelector('video');
+      const loadingIndicator = document.querySelector('.loading-indicator');
       const errorMessage = document.getElementById('errorMessage');
 
-      if (!video) {
-        video = document.createElement('video');
-        video.src = videoUrl;
-        video.preload = 'metadata';
-        video.controls = true;
-        video.style.display = 'none';
-        card.querySelector('.thumbnail-container').appendChild(video);
-      }
-
+      video.src = videoUrl;
+      popup.style.display = 'block';
       loadingIndicator.style.display = 'block';
-      img.style.display = 'none';
-      video.style.display = 'block';
-      videoControls.classList.add('show');
 
       let retries = 0;
       const maxRetries = 3;
@@ -318,13 +324,10 @@
           playPromise
             .then(() => {
               loadingIndicator.style.display = 'none';
-              const id = button.nextElementSibling.getAttribute('onclick').match(/'([^']+)'/)[1];
-              if (!viewedItems.has(id)) {
-                markAsViewed(id);
+              if (!viewedItems.has(videoId)) {
+                markAsViewed(videoId);
               }
-              video.playbackRate = getSavedPlaybackSpeed(video);
-              updateSpeedButtons(video, card);
-              updatePauseButton(video, card);
+              updatePauseButton(video, popup);
             })
             .catch(err => {
               console.error(`Failed to play video: ${video.src}`, err);
@@ -336,10 +339,7 @@
                 }, retryDelay * Math.pow(2, retries));
               } else {
                 errorMessage.textContent = `Không thể phát video: ${err.message}. Vui lòng kiểm tra định dạng hoặc kết nối.`;
-                img.style.display = 'block';
-                video.style.display = 'none';
-                videoControls.classList.remove('show');
-                loadingIndicator.style.display = 'none';
+                closePopup();
               }
             });
         }
@@ -347,53 +347,25 @@
 
       video.addEventListener('error', () => {
         errorMessage.textContent = `Lỗi tải video: ${video.src}. Vui lòng kiểm tra URL hoặc định dạng video.`;
-        img.style.display = 'block';
-        video.style.display = 'none';
-        videoControls.classList.remove('show');
-        loadingIndicator.style.display = 'none';
+        closePopup();
       }, { once: true });
 
       video.load();
       attemptPlay();
-      video.addEventListener('ended', () => nextVideo(button), { once: true });
+      video.addEventListener('ended', () => nextVideo(popup.querySelector('.video-controls button:nth-child(3)')), { once: true });
     }
 
-    function updateSpeedButtons(video, card) {
-      const speedButtons = card.querySelectorAll('.video-controls button:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(3))');
-      speedButtons.forEach(button => {
-        button.classList.remove('active');
-        if (button.textContent === `x${video.playbackRate}`) {
-          button.classList.add('active');
-        }
-      });
-    }
-
-    function setPlaybackSpeed(button, speed) {
-      const card = button.parentElement.parentElement;
-      const video = card.querySelector('video');
-      if (video) {
-        if (video.playbackRate === speed) {
-          video.playbackRate = 1;
-          savePlaybackSpeed(video, 1);
-        } else {
-          video.playbackRate = speed;
-          savePlaybackSpeed(video, speed);
-        }
-        updateSpeedButtons(video, card);
-      }
-    }
-
-    function skipForward(button) {
-      const card = button.parentElement.parentElement;
-      const video = card.querySelector('video');
-      if (video) {
-        video.currentTime += 10;
-      }
+    function closePopup() {
+      const popup = document.getElementById('videoPopup');
+      const video = popup.querySelector('video');
+      video.pause();
+      video.src = '';
+      popup.style.display = 'none';
+      document.querySelector('.loading-indicator').style.display = 'none';
     }
 
     function pauseVideo(button) {
-      const card = button.parentElement.parentElement;
-      const video = card.querySelector('video');
+      const video = document.getElementById('videoPopup').querySelector('video');
       if (video) {
         if (video.paused) {
           video.play();
@@ -402,24 +374,33 @@
           video.pause();
           button.textContent = 'Play';
         }
-        updatePauseButton(video, card);
+        updatePauseButton(video, document.getElementById('videoPopup'));
       }
     }
 
-    function updatePauseButton(video, card) {
-      const pauseButton = card.querySelector('.video-controls button:nth-child(2)');
+    function updatePauseButton(video, container) {
+      const pauseButton = container.querySelector('.video-controls button:nth-child(2)');
       pauseButton.textContent = video.paused ? 'Play' : 'Pause';
     }
 
+    function skipForward(button) {
+      const video = document.getElementById('videoPopup').querySelector('video');
+      if (video) {
+        video.currentTime += 10;
+      }
+    }
+
     function prevVideo(button) {
-      const index = mediaData.findIndex(item => item.url === button.parentElement.parentElement.querySelector('video')?.src);
+      const video = document.getElementById('videoPopup').querySelector('video');
+      const index = mediaData.findIndex(item => item.url === video.src);
       if (index > 0) {
         playVideoByIndex(index - 1);
       }
     }
 
     function nextVideo(button) {
-      const index = mediaData.findIndex(item => item.url === button.parentElement.parentElement.querySelector('video')?.src);
+      const video = document.getElementById('videoPopup').querySelector('video');
+      const index = mediaData.findIndex(item => item.url === video.src);
       if (index < mediaData.length - 1) {
         playVideoByIndex(index + 1);
       } else {
@@ -431,29 +412,22 @@
       const start = (currentPage - 1) * itemsPerPage;
       const end = start + itemsPerPage;
       if (index >= start && index < end) {
-        const card = document.getElementById('mediaGrid').children[index - start];
-        const playButton = card.querySelector('button[onclick*="playVideo"]');
-        playVideo(playButton, mediaData[index].url);
+        playVideo(mediaData[index].url, mediaData[index].id);
       } else {
         currentPage = Math.floor(index / itemsPerPage) + 1;
         requestAnimationFrame(() => {
           renderPage();
-          const newIndex = index % itemsPerPage;
-          const card = document.getElementById('mediaGrid').children[newIndex];
-          const playButton = card.querySelector('button[onclick*="playVideo"]');
-          playVideo(playButton, mediaData[index].url);
+          playVideo(mediaData[index].url, mediaData[index].id);
         });
       }
     }
 
     function markAsViewed(id) {
-      if (viewedItems.has(id)) {
-        viewedItems.delete(id);
-      } else {
+      if (!viewedItems.has(id)) {
         viewedItems.add(id);
+        localStorage.setItem('viewedItems', JSON.stringify([...viewedItems]));
+        requestAnimationFrame(renderPage);
       }
-      localStorage.setItem('viewedItems', JSON.stringify([...viewedItems]));
-      requestAnimationFrame(renderPage);
     }
 
     function updatePagination() {
@@ -484,15 +458,6 @@
     function changePage(direction) {
       const totalPages = Math.ceil(mediaData.length / itemsPerPage);
       currentPage = Math.min(Math.max(1, currentPage + direction), totalPages);
-      requestAnimationFrame(renderPage);
-    }
-
-    function sortMedia() {
-      const sortKey = document.getElementById('sort').value;
-      mediaData.sort((a, b) => {
-        return a[sortKey]?.localeCompare(b[sortKey]) || 0;
-      });
-      currentPage = 1;
       requestAnimationFrame(renderPage);
     }
 
