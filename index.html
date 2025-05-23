@@ -28,7 +28,7 @@
 
     .media-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(45%, 1fr)); /* Tối đa 2 video trên 1 dòng */
+      grid-template-columns: repeat(auto-fill, minmax(45%, 1fr));
       gap: 20px;
     }
 
@@ -207,28 +207,40 @@
     }
 
     .close-popup {
-      position: absolute;
-      top: 5px;
-      right: 10px;
+      position: fixed;
+      top: 20px;
+      right: 20px;
       background: #ff0000;
       color: white;
       border: none;
       border-radius: 50%;
-      width: 24px;
-      height: 24px;
+      width: 40px;
+      height: 40px;
       cursor: pointer;
-      font-size: 16px;
-      line-height: 24px;
+      font-size: 20px;
+      line-height: 40px;
       text-align: center;
+      z-index: 1001;
+      opacity: 0.8;
+      transition: opacity 0.3s;
     }
 
     .close-popup:hover {
+      opacity: 1;
       background: #cc0000;
+    }
+
+    .video-popup.fullscreen .video-popup-content {
+      max-width: 100%;
+      max-height: 100%;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
     }
 
     @media (max-width: 600px) {
       .media-grid {
-        grid-template-columns: 1fr; /* 1 video trên dòng cho màn hình nhỏ */
+        grid-template-columns: 1fr;
       }
 
       .media-card p {
@@ -243,6 +255,15 @@
       
       .video-popup-content {
         width: 95%;
+      }
+
+      .close-popup {
+        top: 10px;
+        right: 10px;
+        width: 30px;
+        height: 30px;
+        font-size: 16px;
+        line-height: 30px;
       }
     }
   </style>
@@ -262,7 +283,6 @@
     </div>
     <div id="videoPopup" class="video-popup" onclick="closePopup()">
       <div class="video-popup-content" onclick="event.stopPropagation()">
-        <button class="close-popup" onclick="closePopup()">×</button>
         <video controls></video>
         <div class="video-controls">
           <button onclick="event.stopPropagation(); prevVideo(this)">Previous</button>
@@ -271,6 +291,7 @@
           <button class="skip-button" onclick="event.stopPropagation(); skipForward(this)">+10s</button>
         </div>
       </div>
+      <button class="close-popup" onclick="closePopup()">×</button>
     </div>
   </div>
   <script>
@@ -361,10 +382,6 @@
         }
       }
 
-      // Remove previous event listeners to avoid duplicates
-      video.removeEventListener('error', handleVideoError);
-      video.removeEventListener('ended', handleVideoEnded);
-
       function handleVideoError() {
         errorMessage.textContent = `Lỗi tải video: ${video.src}. Vui lòng kiểm tra URL hoặc định dạng video.`;
         closePopup();
@@ -387,7 +404,6 @@
         const nextItem = mediaData[nextIndex];
         playVideo(nextItem.url, nextItem.id, nextIndex);
       } else {
-        // If it's the last video, loop back to the first
         const firstItem = mediaData[0];
         playVideo(firstItem.url, firstItem.id, 0);
       }
@@ -396,6 +412,22 @@
     function closePopup() {
       const popup = document.getElementById('videoPopup');
       const video = popup.querySelector('video');
+      
+      if (document.fullscreenElement || 
+          document.webkitFullscreenElement || 
+          document.mozFullScreenElement || 
+          document.msFullscreenElement) {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+      }
+
       video.pause();
       video.src = '';
       popup.style.display = 'none';
@@ -441,7 +473,6 @@
         const nextItem = mediaData[currentVideoIndex + 1];
         playVideo(nextItem.url, nextItem.id, currentVideoIndex + 1);
       } else {
-        // If it's the last video, loop back to the first
         const firstItem = mediaData[0];
         playVideo(firstItem.url, firstItem.id, 0);
       }
@@ -522,9 +553,9 @@
 
     document.addEventListener('DOMContentLoaded', loadCSV);
     
-    // Close popup when pressing Escape key
     document.addEventListener('keydown', function(event) {
-      if (event.key === 'Escape') {
+      const popup = document.getElementById('videoPopup');
+      if (event.key === 'Escape' && popup.style.display === 'flex') {
         closePopup();
       }
     });
