@@ -27,39 +27,49 @@
     }
 
     .media-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(45%, 1fr));
-      gap: 20px;
-    }
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* Điều chỉnh chiều rộng tối thiểu */
+  gap: 20px;
+}
 
-    .media-card {
-      background: white;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
+.media-card {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%; /* Đảm bảo card chiếm toàn bộ chiều rộng của cột */
+}
 
-    .media-card .thumbnail-container {
-      width: 100%;
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #000;
-      position: relative;
-    }
+.media-card .thumbnail-container {
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000;
+  position: relative;
+  
+}
 
-    .media-card img {
-      width: 100%;
-      height: auto;
-      object-fit: cover;
-      aspect-ratio: 16/9;
-      loading: lazy;
-      cursor: pointer;
-    }
+.media-card img {
+  width: 100%;
+  height: 100%; /* Đảm bảo ảnh lấp đầy container */
+  object-fit: contain; /* Hiển thị toàn bộ thumbnail, không cắt */
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .media-grid {
+    grid-template-columns: 1fr; /* Một cột trên màn hình nhỏ */
+  }
+
+  .media-card .thumbnail-container {
+    aspect-ratio: 16/9; /* Giữ tỷ lệ trên màn hình nhỏ */
+  }
+}
 
     .media-card p {
       margin: 8px;
